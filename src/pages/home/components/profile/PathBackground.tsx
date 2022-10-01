@@ -1,80 +1,143 @@
-import { useMountEffect, useWindowSize } from "@react-hookz/web/esnext";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRafEffect } from "@react-hookz/web/esnext";
+import useSpring from "react-use/lib/useSpring";
+import { useEffect, useRef } from "react";
+import {
+  useCanvasRenderingContext,
+  useRelativePositionToWindowSize,
+} from "./canvas";
 
 interface PathBackgroundProps {
   sectionCount: number;
+  currentSection: number;
 }
 
-export default function PathBackground({ sectionCount }: PathBackgroundProps) {
-  const { width, height } = useWindowSize();
-  const canvasHeight = useMemo(() => {
-    return height * sectionCount;
-  }, [height]);
-  const centerPositionFromTop = useMemo(() => {
-    return height * 0.5;
-  }, [height]);
-  const curvingPositionFromTop = useMemo(() => {
-    return height * 0.8;
-  }, [height]);
-  const pathPositionFromLeft = useMemo(() => {
-    return { leftX: width * 0.2, centerX: width * 0.5, rightX: width * 0.8 };
-  }, [width]);
-  const radiusOfQuadraticCurve = useMemo(() => {
-    return width * 0.1;
-  }, [width]);
-
+export default function PathBackground({
+  sectionCount,
+  currentSection,
+}: PathBackgroundProps) {
   const canvasEl = useRef<HTMLCanvasElement>(null);
-  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
-  const [ctx, setCtx] = useState<CanvasRenderingContext2D>();
-  useMountEffect(() => {
-    const canvas = canvasEl.current;
-    const context = canvas!.getContext("2d");
-    contextRef.current = context;
-    setCtx(contextRef.current!);
-  });
+  const ctx = useCanvasRenderingContext(canvasEl);
+  const offCanvasEl = useRef<HTMLCanvasElement>(null);
+  const offCtx = useCanvasRenderingContext(offCanvasEl);
+
+  const { canvas, window, leftX, rightX, centerX, centerY, curve } =
+    useRelativePositionToWindowSize(sectionCount);
+
+  const tweened = useSpring(currentSection, 10, 10);
 
   useEffect(() => {
-    if (!ctx) return;
+    if (!offCtx) return;
 
-    const { leftX, centerX, rightX } = pathPositionFromLeft;
+    offCtx.strokeStyle = "#fff";
+    offCtx.lineWidth = curve.radius * 0.3;
+    offCtx.lineCap = "round";
 
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 10;
-    ctx.lineCap = "round";
+    offCtx.fillStyle = "#153f64";
+    offCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "#153f64";
-    ctx.fillRect(0, 0, width, canvasHeight);
-
-    ctx.beginPath();
-    ctx.moveTo(centerX, height * 0.5);
-    ctx.lineTo(centerX, curvingPositionFromTop - radiusOfQuadraticCurve);
-    ctx.quadraticCurveTo(
+    offCtx.fillStyle = "#fff";
+    offCtx.beginPath();
+    offCtx.ellipse(
       centerX,
-      curvingPositionFromTop,
-      centerX + radiusOfQuadraticCurve,
-      curvingPositionFromTop
+      centerY,
+      curve.radius * 0.3,
+      curve.radius * 0.3,
+      0,
+      0,
+      Math.PI * 2
     );
-    ctx.lineTo(rightX - radiusOfQuadraticCurve, curvingPositionFromTop);
-    ctx.quadraticCurveTo(
-      rightX,
-      curvingPositionFromTop,
-      rightX,
-      curvingPositionFromTop + radiusOfQuadraticCurve
+    offCtx.fill();
+    offCtx.beginPath();
+    offCtx.ellipse(
+      centerX,
+      centerY,
+      curve.radius * 0.7,
+      curve.radius * 0.7,
+      0,
+      0,
+      Math.PI * 2
     );
-    ctx.lineTo(
-      rightX,
-      1 * height + curvingPositionFromTop - radiusOfQuadraticCurve
+    offCtx.stroke();
+
+    offCtx.beginPath();
+    offCtx.moveTo(centerX, window.height * 0.5);
+    offCtx.lineTo(centerX, curve.posY - curve.radius);
+    let currentX = centerX;
+    const changePathToRight = (offsetY: number) => {
+      offCtx!.quadraticCurveTo(
+        currentX,
+        offsetY + curve.posY,
+        currentX + curve.radius,
+        offsetY + curve.posY
+      );
+      currentX = rightX;
+      offCtx!.lineTo(rightX - curve.radius, offsetY + curve.posY);
+      offCtx!.quadraticCurveTo(
+        rightX,
+        offsetY + curve.posY,
+        rightX,
+        offsetY + curve.posY + curve.radius
+      );
+      offCtx!.lineTo(
+        rightX,
+        offsetY + window.height + curve.posY - curve.radius
+      );
+    };
+    const changePathToLeft = (offsetY: number) => {
+      offCtx!.quadraticCurveTo(
+        currentX,
+        offsetY + curve.posY,
+        currentX - curve.radius,
+        offsetY + curve.posY
+      );
+      currentX = leftX;
+      offCtx!.lineTo(leftX + curve.radius, offsetY + curve.posY);
+      offCtx!.quadraticCurveTo(
+        leftX,
+        offsetY + curve.posY,
+        leftX,
+        offsetY + curve.posY + curve.radius
+      );
+      offCtx!.lineTo(
+        leftX,
+        offsetY + window.height + curve.posY - curve.radius
+      );
+    };
+    for (let i = 0; i < sectionCount - 1; i++) {
+      if (i % 2) {
+        changePathToLeft(i * window.height);
+      } else {
+        changePathToRight(i * window.height);
+      }
+    }
+    offCtx.stroke();
+  }, [offCtx, window]);
+
+  useRafEffect(() => {
+    if (!ctx || !offCtx) return;
+    const cropImage = offCtx.getImageData(
+      0,
+      window.height * tweened,
+      canvas.width,
+      window.height
     );
-    ctx.stroke();
-    // for (let i = 1; i < sectionCount; i++) {}
-  }, [ctx, width, height]);
+    ctx.putImageData(cropImage, 0, 0);
+  }, [ctx, offCtx, window, tweened]);
 
   return (
-    <canvas
-      className="object-fill"
-      ref={canvasEl}
-      width={width}
-      height={canvasHeight}
-    ></canvas>
+    <>
+      <canvas
+        className="object-fill"
+        ref={canvasEl}
+        width={window.width}
+        height={canvas.height}
+      ></canvas>
+      <canvas
+        className="invisible"
+        ref={offCanvasEl}
+        width={window.width}
+        height={canvas.height}
+      ></canvas>
+    </>
   );
 }
