@@ -1,11 +1,5 @@
 import { useMountEffect, useWindowSize } from "@react-hookz/web/esnext";
-import {
-  type RefObject,
-  useRef,
-  useState,
-  useMemo,
-  createElement,
-} from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 
 export function useCanvasRenderingContext(
   canvasEl: RefObject<HTMLCanvasElement>

@@ -1,6 +1,6 @@
 import { useRafEffect } from "@react-hookz/web/esnext";
-import useSpring from "react-use/lib/useSpring";
 import { useEffect, useRef } from "react";
+import useSpring from "react-use/lib/useSpring";
 import {
   useCanvasRenderingContext,
   useRelativePositionToWindowSize,
@@ -110,6 +110,29 @@ export default function PathBackground({
         changePathToRight(i * window.height);
       }
     }
+    offCtx.stroke();
+
+    offCtx.beginPath();
+    const ARROW_SIZE = 100;
+    offCtx.lineJoin = "round";
+    offCtx.moveTo(
+      rightX - ARROW_SIZE,
+      (sectionCount - 1) * window.height +
+        curve.posY -
+        curve.radius -
+        ARROW_SIZE
+    );
+    offCtx.lineTo(
+      rightX,
+      (sectionCount - 1) * window.height + curve.posY - curve.radius
+    );
+    offCtx.lineTo(
+      rightX + ARROW_SIZE,
+      (sectionCount - 1) * window.height +
+        curve.posY -
+        curve.radius -
+        ARROW_SIZE
+    );
     offCtx.stroke();
   }, [offCtx, window]);
 
