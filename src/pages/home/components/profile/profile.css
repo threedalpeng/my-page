@@ -1,0 +1,26 @@
+@import url("/src/assets/fonts/Pretandard/pretendardvariable.css");
+
+body {
+  overflow: hidden;
+  font-family: Pretandard;
+}
+
+.slid-enter {
+  opacity: 0;
+  transform: translateY(10vh);
+}
+.slid-enter-active {
+  opacity: 1;
+  transform: translateY(0vh);
+}
+.slid-exit {
+  opacity: 1;
+}
+.slid-exit-active {
+  opacity: 0;
+  transform: translateY(-10vh);
+}
+.slid-enter-active,
+.slid-exit-active {
+  transition: all 400ms;
+}
